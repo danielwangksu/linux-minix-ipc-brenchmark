@@ -55,8 +55,8 @@ int main(int argc, char ** argv)
     struct sockaddr_in dest_adr;
     socklen_t dest_adr_len;
     int socket_fd;
-    char buffsend[MSGSIZE];
-    char buffrecv[MSGSIZE];
+    char buffsend[MSGSIZE] = {0};
+    char buffrecv[MSGSIZE] = {0};
 
     struct timespec before = {0, 0};
     struct timespec after = {0, 0};

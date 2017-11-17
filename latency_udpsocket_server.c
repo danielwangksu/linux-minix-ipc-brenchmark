@@ -57,8 +57,8 @@ int main(int argc, char ** argv)
     //socklen_t local_adr_len;
     int socket_fd;
 
-    char buffsend[MSGSIZE];
-    char buffrecv[MSGSIZE];
+    char buffsend[MSGSIZE] = {-1};
+    char buffrecv[MSGSIZE] = {-1};
 
     memset(&client_adr, 0, sizeof client_adr);
     memset(&local_adr, 0, sizeof local_adr);
@@ -83,10 +83,10 @@ int main(int argc, char ** argv)
         printf("[SERVER]: start receiving %s\n", inet_ntoa(local_adr.sin_addr));
         status = recvfrom(socket_fd, buffrecv, sizeof(buffrecv), 0, (struct sockaddr *)&client_adr, &client_adr_len);
         if(status < 0)
-            bail("[INPROXY]: recvfrom(2) failed");
+            bail("[SERVER]: recvfrom(2) failed");
         status = sendto(socket_fd, buffsend, sizeof(buffsend), 0, (struct sockaddr *)&client_adr, client_adr_len);
         if(status < 0)
-            bail("[INPROXY]: sendto() failed");
+            bail("[SERVER]: sendto() failed");
     }
     close(socket_fd);
     return 0;

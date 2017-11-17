@@ -11,6 +11,7 @@
 #include <fcntl.h>  /* For O_* constants */
 #include <sys/stat.h>   /* For mode constants */
 #include <mqueue.h> /* For message queue */
+#include <sys/resource.h>
 
 #include <time.h>
 #include <sys/time.h>
@@ -22,7 +23,7 @@
 #define CRW_FLAG   (O_RDWR | O_CREAT)
 
 #define MAXMSG  10
-#define MSGSIZE 64 // 1 or 1024 bytes
+#define MSGSIZE 8*1024
 
 struct timeval tv_start, tv_stop;
 
@@ -34,7 +35,7 @@ static void bail(const char *on_what) {
 /*=================================================================*
  *              diff                            *
  *=================================================================*/
-struct timespec diff(struct timespec start, struct timespec end)
+unsigned long diff(struct timespec start, struct timespec end)
 {
     struct timespec temp;
     if((end.tv_nsec - start.tv_nsec) < 0)
@@ -45,7 +46,7 @@ struct timespec diff(struct timespec start, struct timespec end)
         temp.tv_sec = end.tv_sec - start.tv_sec;
         temp.tv_nsec = end.tv_nsec - start.tv_nsec;
     }
-    return temp;
+    return (unsigned long)temp.tv_sec * BILLION + (unsigned long)temp.tv_nsec;
 }
 
 /*=================================================================*
@@ -88,25 +89,32 @@ double stop_time(void)
 /*=================================================================*
  *              send_message                    *
  *=================================================================*/
-void send_message(mqd_t mqsend, mqd_t mqrecv)
+unsigned long send_message(mqd_t mqsend, mqd_t mqrecv, int msgsize)
 {
-    char buff[MSGSIZE] = "BBBB";
+    char buff[MSGSIZE] = {0};
     int status;
+    int i;
+    unsigned long elapse;
     struct timespec before = {0, 0};
     struct timespec after = {0, 0};
     printf("before buff: %s\n", buff);
 
+    for(i = 0; i < MSGSIZE; i++)
+        buff[i] = 'A';
+
     clock_gettime(CLOCK_MONOTONIC, &before);
     //start_time();
-    status = mq_send(mqsend, buff, MSGSIZE, 0);
+    status = mq_send(mqsend, buff, msgsize, 0);
     if(status != OK)
         bail("[CLIENT]: mq_send error");
-    if (mq_receive(mqrecv, buff, MSGSIZE, NULL) != MSGSIZE)
+    if (mq_receive(mqrecv, buff, msgsize, NULL) != msgsize)
         bail("[CLIENT]: mq_receive error");
     clock_gettime(CLOCK_MONOTONIC, &after);
+    elapse = diff(before, after);
     //printf("Cost: %f usec\n", stop_time());
-    printf("after buff: %s\n", buff);
-    printf("sec: %ld, nonosec: %ld\n", diff(before, after).tv_sec, diff(before, after).tv_nsec);
+    //printf("after buff: %s\n", buff);
+    printf("nonosec: %lu\n", elapse);
+    return elapse;
 
 }
 
@@ -115,8 +123,9 @@ void send_message(mqd_t mqsend, mqd_t mqrecv)
  *=================================================================*/
 int main(int argc, char ** argv)
 {
-    int i, nloop;
+    int i, nloop, msgsize, prio;
     pid_t childpid;
+    unsigned long timepass = 0; 
 
     mqd_t mqd_in, mqd_out;
     struct mq_attr attr;
@@ -124,12 +133,20 @@ int main(int argc, char ** argv)
     // struct timespec before = {0, 0};
     // struct timespec after = {0, 0};
 
-    if(argc != 2)
-        bail("[Error] usage: latency_pxmsg {NUM_OF_LOOPS}");
+    prio = setpriority(PRIO_PROCESS, 0, -20);
+    if(prio != 0)
+        printf("[SERVER]: need more privilege to change priority\n");
+
+    if(argc != 3)
+        bail("[Error] usage: latency_pxmsg {NUM_OF_LOOPS} {MESSAGE_SIZE}");
     nloop = atoi(argv[1]);
+    msgsize = atoi(argv[2]);
+
+    if(nloop > 10 || msgsize > 8192)
+        bail("[Error] {NUM_OF_LOOPS} cannot be larger than 10 {MESSAGE_SIZE} cannot be larger than 8192");
 
     attr.mq_maxmsg = MAXMSG;
-    attr.mq_msgsize = MSGSIZE;
+    attr.mq_msgsize = msgsize;
 
     mqd_in = mq_open("/client_server", CRW_FLAG, FILE_MODE, &attr);
     mqd_out = mq_open("/server_client", CRW_FLAG, FILE_MODE, &attr);
@@ -137,18 +154,30 @@ int main(int argc, char ** argv)
     if((childpid = fork()) == 0)
     {   /* child SERVER process */
         int i = 0;
+        int status, prio;
+        char buff[MSGSIZE];
+        struct timespec before = {0, 0};
+        struct timespec after = {0, 0};
+        
+        prio = setpriority(PRIO_PROCESS, 0, -20);
+        if(prio != 0)
+            printf("[SERVER]: need more privilege to change priority\n");
+
         while(1)
         {
-            int status;
-            char buff[MSGSIZE];
-            if(mq_receive(mqd_in, buff, MSGSIZE, NULL) != MSGSIZE)
+            if(mq_receive(mqd_in, buff, msgsize, NULL) != msgsize)
                 bail("[SERVER]: mq_receive error");
 
-            printf("received buff: %s\n", buff);
-            buff[0] += i;
-            printf("send buff: %s\n", buff);
+            //printf("received buff: %s\n", buff);
 
-            status = mq_send(mqd_out, buff, MSGSIZE, 0);
+            clock_gettime(CLOCK_MONOTONIC, &before);
+            for(i = 0; i < msgsize; i++)
+                buff[i] += 1;
+            clock_gettime(CLOCK_MONOTONIC, &after);
+            // printf("send buff: %s\n", buff);
+            printf("[SERVER]: forloop nonosec: %lu\n", diff(before, after));
+
+            status = mq_send(mqd_out, buff, msgsize, 0);
             if(status != OK)
                 bail("[SERVER]: mq_send error");
             i++;
@@ -158,18 +187,14 @@ int main(int argc, char ** argv)
     }
 
     /* parent CLIENT process */
-    send_message(mqd_in, mqd_out);
+    send_message(mqd_in, mqd_out, msgsize);
 
     for(i = 0; i < nloop; i++)
     {
         sleep(1);
-        // get timestamp before
-        //clock_gettime(CLOCK_MONOTONIC, &before);
-        send_message(mqd_in, mqd_out);
-        // get timestamp after
-        //clock_gettime(CLOCK_MONOTONIC, &after);
-        //printf("sec: %ld, nonosec: %ld\n", diff(before, after).tv_sec, diff(before, after).tv_nsec);
+        timepass +=send_message(mqd_in, mqd_out, msgsize);
     }
+    printf("[Server]: %d loop average nsec %lu\n", nloop, timepass/nloop);
     kill(childpid, SIGTERM);
     mq_close(mqd_in);
     mq_close(mqd_out);
