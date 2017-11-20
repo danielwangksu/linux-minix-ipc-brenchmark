@@ -21,7 +21,7 @@
 #define BILLION  1000000000L
 #define MSGSIZE 64 // 1 or 1024 bytes
 
-#define DEST_UDP_PORT 9090 /* receiving port */
+#define UNIX_SOCK_FILE "./unix_domain_server"
 
 // fault handler
 static void bail(const char *on_what) {
@@ -52,7 +52,6 @@ int main(int argc, char ** argv)
 {
     int i, nloop, status;
     int len;
-    char *destipfile;
 
     struct sockaddr_un dest_adr;
     //socklen_t dest_adr_len;
@@ -64,15 +63,14 @@ int main(int argc, char ** argv)
     struct timespec after = {0, 0};
 
     if(argc != 3)
-        bail("[Error] usage: latency_udpsocket_client {NUM_OF_LOOPS} {SERVER_FILE}");
+        bail("[Error] usage: latency_udpsocket_client {NUM_OF_LOOPS}");
 
     nloop = atoi(argv[1]);
-    destipfile = argv[2];
-    printf("[CLIENT]: DEST FILE = %s\n", destipfile);
+    printf("[CLIENT]: DEST FILE = %s\n", UNIX_SOCK_FILE);
 
     memset(&dest_adr, 0, sizeof dest_adr);
     dest_adr.sun_family = AF_UNIX;
-    strcpy(dest_adr.sun_path, destipfile);
+    strcpy(dest_adr.sun_path, UNIX_SOCK_FILE);
     len = strlen(dest_adr.sun_path) + sizeof(dest_adr.sun_family);
 
     socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -96,5 +94,6 @@ int main(int argc, char ** argv)
         printf("sec: %ld, nonosec: %ld\n", diff(before, after).tv_sec, diff(before, after).tv_nsec);
     }
     close(socket_fd);
+    unlink(UNIX_SOCK_FILE); //Whichever finishes last deletes file
     return 0;
 }

@@ -21,7 +21,7 @@
 #define BILLION  1000000000L
 #define MSGSIZE 64 // 1 or 1024 bytes
 
-#define DEST_UDP_PORT 9090 /* 9090 receive port */
+#define UNIX_SOCK_FILE "./unix_domain_server"
 
 // fault handler
 static void bail(const char *on_what) {
@@ -66,7 +66,7 @@ int main(int argc, char ** argv)
     memset(&client_adr, 0, sizeof client_adr);
     memset(&local_adr, 0, sizeof local_adr);
     local_adr.sun_family = AF_UNIX;
-    strcpy(local_adr.sun_path, "./unix_domain_server");
+    strcpy(local_adr.sun_path, UNIX_SOCK_FILE);
     unlink(local_adr.sun_path);
     len = strlen(local_adr.sun_path) + sizeof(local_adr.sun_family);
     //local_adr_len = sizeof local_adr;
@@ -97,5 +97,7 @@ int main(int argc, char ** argv)
             bail("[SERVER]: sendto() failed");
     }
     close(socket_fd);
+    close(socket_fd2);
+    unlink(UNIX_SOCK_FILE); //Whichever finishes last deletes file
     return 0;
 }
