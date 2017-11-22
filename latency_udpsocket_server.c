@@ -30,7 +30,7 @@ static void bail(const char *on_what) {
 /*=================================================================*
  *              diff                            *
  *=================================================================*/
-struct timespec diff(struct timespec start, struct timespec end)
+unsigned long diff(struct timespec start, struct timespec end)
 {
     struct timespec temp;
     if((end.tv_nsec - start.tv_nsec) < 0)

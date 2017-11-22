@@ -89,7 +89,7 @@ double stop_time(void)
 /*=================================================================*
  *              send_message                    *
  *=================================================================*/
-unsigned long send_message(mqd_t mqsend, mqd_t mqrecv, int msgsize)
+unsigned long send_message(mqd_t mqsend, mqd_t mqrecv, int msgsize, int round)
 {
     char buff[MSGSIZE] = {0};
     int status;
@@ -97,10 +97,12 @@ unsigned long send_message(mqd_t mqsend, mqd_t mqrecv, int msgsize)
     unsigned long elapse;
     struct timespec before = {0, 0};
     struct timespec after = {0, 0};
-    printf("before buff: %s\n", buff);
 
     for(i = 0; i < MSGSIZE; i++)
         buff[i] = 'A';
+
+    for(i = 0; i < MSGSIZE; i++)
+        buff[i] += round;
 
     clock_gettime(CLOCK_MONOTONIC, &before);
     //start_time();
@@ -112,8 +114,8 @@ unsigned long send_message(mqd_t mqsend, mqd_t mqrecv, int msgsize)
     clock_gettime(CLOCK_MONOTONIC, &after);
     elapse = diff(before, after);
     //printf("Cost: %f usec\n", stop_time());
-    //printf("after buff: %s\n", buff);
-    printf("nonosec: %lu\n", elapse);
+    // printf("after buff: %s\n", buff);
+    // printf("nonosec: %lu\n", elapse);
     return elapse;
 
 }
@@ -142,8 +144,8 @@ int main(int argc, char ** argv)
     nloop = atoi(argv[1]);
     msgsize = atoi(argv[2]);
 
-    if(nloop > 10 || msgsize > 8192)
-        bail("[Error] {NUM_OF_LOOPS} cannot be larger than 10 {MESSAGE_SIZE} cannot be larger than 8192");
+    if(msgsize > 8192)
+        bail("[Error] {MESSAGE_SIZE} cannot be larger than 8192");
 
     attr.mq_maxmsg = MAXMSG;
     attr.mq_msgsize = msgsize;
@@ -156,8 +158,8 @@ int main(int argc, char ** argv)
         int i = 0;
         int status, prio;
         char buff[MSGSIZE];
-        struct timespec before = {0, 0};
-        struct timespec after = {0, 0};
+        // struct timespec before = {0, 0};
+        // struct timespec after = {0, 0};
         
         prio = setpriority(PRIO_PROCESS, 0, -20);
         if(prio != 0)
@@ -168,14 +170,13 @@ int main(int argc, char ** argv)
             if(mq_receive(mqd_in, buff, msgsize, NULL) != msgsize)
                 bail("[SERVER]: mq_receive error");
 
-            //printf("received buff: %s\n", buff);
+            // printf("received buff: %s\n", buff);
 
-            clock_gettime(CLOCK_MONOTONIC, &before);
+            // clock_gettime(CLOCK_MONOTONIC, &before);
             for(i = 0; i < msgsize; i++)
                 buff[i] += 1;
-            clock_gettime(CLOCK_MONOTONIC, &after);
-            // printf("send buff: %s\n", buff);
-            printf("[SERVER]: forloop nonosec: %lu\n", diff(before, after));
+            // clock_gettime(CLOCK_MONOTONIC, &after);
+            // printf("[SERVER]: forloop nonosec: %lu\n", diff(before, after));
 
             status = mq_send(mqd_out, buff, msgsize, 0);
             if(status != OK)
@@ -187,12 +188,11 @@ int main(int argc, char ** argv)
     }
 
     /* parent CLIENT process */
-    send_message(mqd_in, mqd_out, msgsize);
+    send_message(mqd_in, mqd_out, msgsize, 0);
 
     for(i = 0; i < nloop; i++)
     {
-        sleep(1);
-        timepass +=send_message(mqd_in, mqd_out, msgsize);
+        timepass +=send_message(mqd_in, mqd_out, msgsize, i);
     }
     printf("[Server]: %d loop average nsec %lu\n", nloop, timepass/nloop);
     kill(childpid, SIGTERM);
