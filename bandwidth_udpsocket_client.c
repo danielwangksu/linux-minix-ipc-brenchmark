@@ -1,17 +1,16 @@
 /**************************************************************
-*   Linux POSIX Message Queue for bandwidth Testing           *
+*   Linux UDP Socket for bandwidth Testing     Client         *
 *   by Daniel Wang                                            *
 ***************************************************************/
-
 #include <stdio.h> /* For printf */
 #include <stdlib.h> /* For exit() */
-#include <unistd.h> /* For sysconf() */
+#include <unistd.h>
 #include <sys/types.h>
 #include <signal.h> /* For kill() */
 #include <string.h>
 #include <fcntl.h>  /* For O_* constants */
 #include <sys/stat.h>   /* For mode constants */
-#include <mqueue.h> /* For message queue */
+#include <arpa/inet.h> /* For socket related */
 #include <sys/resource.h>
 
 #include <time.h>
@@ -19,11 +18,9 @@
 
 #define OK  0
 #define BILLION  1000000000L
+#define MSGSIZE 8*1024
 
-#define FILE_MODE   (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
-#define CRW_FLAG   (O_RDWR | O_CREAT)
-
-#define MAXMSG  10
+#define DEST_UDP_PORT 9090 /* 9090 receive port */
 
 void *buf;
 int totalnbytes, xfersize;
@@ -58,7 +55,7 @@ int touch(void *vptr, int nbytes)
     char *cptr;
     static int pagesize = 0;
 
-    if (pagesize == 0) 
+    if (pagesize == 0)
     {
 #ifdef  _SC_PAGESIZE
         if ((pagesize=sysconf(_SC_PAGESIZE)) == -1)
@@ -68,7 +65,7 @@ int touch(void *vptr, int nbytes)
 #endif
     }
 
-    cptr = vptr;
+    cptr = (char *) vptr;
     while (nbytes > 0) {
         *cptr = 1;
         cptr += pagesize;
@@ -78,35 +75,17 @@ int touch(void *vptr, int nbytes)
 }
 
 /*=================================================================*
- *              reader                          *
+ *              sendTotal                       *
  *=================================================================*/
-void reader(int comfd, mqd_t mqrecv, int nbytes)
+void sendTotal(int socket_fd, int total)
 {
-    ssize_t n;
-    if(write(comfd, &nbytes, sizeof(nbytes))!= sizeof(nbytes))
-        bail("[ERROR]: write error");
-
-    while((nbytes > 0) && ((n = mq_receive(mqrecv, buf, xfersize, NULL)) > 0))
+    void* offset;
+    offset = buf;
+    while(total > 0)
     {
-        nbytes -= n;
-    }
-}
-
- /*=================================================================*
- *              writer                          *
- *=================================================================*/
-void writer(int comfd, mqd_t mqsend)
-{
-    int nbytes;
-    while(1)
-    {
-        read(comfd, &nbytes, sizeof(nbytes));
-
-        while(nbytes > 0)
-        {
-            mq_send(mqsend, buf, xfersize, 0);
-            nbytes -= xfersize;
-        }
+        send(socket_fd, offset, xfersize, 0);
+        offset = offset + xfersize;
+        total -= xfersize;
     }
 
 }
@@ -116,57 +95,54 @@ void writer(int comfd, mqd_t mqsend)
  *=================================================================*/
 int main(int argc, char ** argv)
 {
-    int i, nloop, prio, comPipe[2];
-    pid_t childpid;
+    int i, nloop, prio;
+    char *destip;
 
-    mqd_t mq;
-    struct mq_attr attr;
+    struct sockaddr_in dest_adr;
+    int socket_fd;
 
     struct timespec before = {0, 0};
     struct timespec after = {0, 0};
 
     prio = setpriority(PRIO_PROCESS, 0, -20);
     if(prio != 0)
-        printf("[SERVER]: need more privilege to change priority\n");
+        printf("[CLIENT]: need more privilege to change priority\n");
 
-    if(argc != 4)
-        bail("[Error] usage: bandwidth_pxmsg {NUM_OF_LOOPS} {TOTAL_NUM_OF_MB} {BYTES_PER_WRITE}");
+    if(argc != 5)
+        bail("[Error] usage: bandwidth_udpsocket_client {NUM_OF_LOOPS} {TOTAL_NUM_OF_MB} {BYTES_PER_WRITE} {SERVER_IP}");
     nloop = atoi(argv[1]);
     totalnbytes = atoi(argv[2]) * 1024 * 1024;
     xfersize = atoi(argv[3]);
+    destip = argv[4];
 
-    buf = malloc(xfersize);
-    if(touch(buf, xfersize) == -1)
+    buf = malloc(totalnbytes);
+    if(touch(buf, totalnbytes) == -1)
         bail("[Error] touch error");
 
-    pipe(comPipe);
-    mq_unlink("/bandwdithMQ");
-    attr.mq_maxmsg = MAXMSG;
-    attr.mq_msgsize = xfersize;
-    mq = mq_open("/bandwdithMQ", CRW_FLAG, FILE_MODE, &attr);
+    memset(&dest_adr, 0, sizeof dest_adr);
+    dest_adr.sin_family = AF_INET;
+    dest_adr.sin_port = htons(DEST_UDP_PORT);
+    dest_adr.sin_addr.s_addr = inet_addr(destip);
 
-    if((childpid = fork()) == 0)
-    {   /* child SERVER process */
-        writer(comPipe[0], mq);
-        exit(0);
-    }
 
-    /* child CLIENT process */
+    if (dest_adr.sin_addr.s_addr == INADDR_NONE)
+        bail("[Error]: bad address");
+
+    socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (socket_fd == -1)
+        bail("[Error]: socket() failed");
+
+    sleep(1);
+
     for(i = 0; i < nloop; i++)
     {
-
-        // get timestamp before
         clock_gettime(CLOCK_MONOTONIC, &before);
-        reader(comPipe[1], mq, totalnbytes);
+        sendTotal(socket_fd, totalnbytes);
         // get timestamp after
         clock_gettime(CLOCK_MONOTONIC, &after);
         printf("sec: %ld, nsec: %ld total bytes: %d\n", diff(before, after).tv_sec, diff(before, after).tv_nsec, totalnbytes);
     }
-
-    kill(childpid, SIGTERM);
     free(buf);
-    mq_close(mq);
-    mq_unlink("/bandwdithMQ");
-    exit(0);
-
+    close(socket_fd);
+    return 0;
 }

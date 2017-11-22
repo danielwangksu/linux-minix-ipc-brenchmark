@@ -81,15 +81,15 @@ int touch(void *vptr, int nbytes)
 /*=================================================================*
  *              reader                          *
  *=================================================================*/
-void reader(int socket_fd, int totalnbytes)
+void reader(int socket_fd, int nbytes)
 {
     ssize_t n;
-    if(send(socket_fd, &totalnbytes, sizeof(totalnbytes), 0)!= sizeof(totalnbytes))
+    if(send(socket_fd, &nbytes, sizeof(nbytes), 0)!= sizeof(nbytes))
         bail("[ERROR]: write error");
 
-    while((totalnbytes > 0) && ((n = recv(socket_fd, buf, xfersize, 0)) > 0))
+    while((nbytes > 0) && ((n = recv(socket_fd, buf, xfersize, 0)) > 0))
     {
-        totalnbytes -= n;
+        nbytes -= n;
     }
 }
 
@@ -98,15 +98,15 @@ void reader(int socket_fd, int totalnbytes)
  *=================================================================*/
 void writer(int socket_fd)
 {
-    int totalnbytes;
+    int nbytes;
     while(1)
     {
-        recv(socket_fd, &totalnbytes, sizeof(totalnbytes), 0);
+        recv(socket_fd, &nbytes, sizeof(nbytes), 0);
 
-        while(totalnbytes > 0)
+        while(nbytes > 0)
         {
             send(socket_fd, buf, xfersize, 0);
-            totalnbytes -= xfersize;
+            nbytes -= xfersize;
         }
     }
 
