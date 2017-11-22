@@ -12,6 +12,7 @@
 #include <fcntl.h>  /* For O_* constants */
 #include <sys/stat.h>   /* For mode constants */
 #include <mqueue.h> /* For message queue */
+#include <sys/resource.h>
 
 #include <time.h>
 #include <sys/time.h>
@@ -115,7 +116,7 @@ void writer(int comfd, mqd_t mqsend)
  *=================================================================*/
 int main(int argc, char ** argv)
 {
-    int i, nloop, comPipe[2];
+    int i, nloop, prio, comPipe[2];
     pid_t childpid;
 
     mqd_t mq;
@@ -123,6 +124,10 @@ int main(int argc, char ** argv)
 
     struct timespec before = {0, 0};
     struct timespec after = {0, 0};
+
+    prio = setpriority(PRIO_PROCESS, 0, -20);
+    if(prio != 0)
+        printf("[SERVER]: need more privilege to change priority\n");
 
     if(argc != 4)
         bail("[Error] usage: bandwidth_pxmsg {NUM_OF_LOOPS} {TOTAL_NUM_OF_MB} {BYTES_PER_WRITE}");
@@ -149,13 +154,13 @@ int main(int argc, char ** argv)
     /* child CLIENT process */
     for(i = 0; i < nloop; i++)
     {
-        sleep(1);
+
         // get timestamp before
         clock_gettime(CLOCK_MONOTONIC, &before);
         reader(comPipe[1], mq, totalnbytes);
         // get timestamp after
         clock_gettime(CLOCK_MONOTONIC, &after);
-        printf("sec: %ld, nonosec: %ld total bytes: %d\n", diff(before, after).tv_sec, diff(before, after).tv_nsec, totalnbytes);
+        printf("sec: %ld, nsec: %ld total bytes: %d\n", diff(before, after).tv_sec, diff(before, after).tv_nsec, totalnbytes);
     }
 
     kill(childpid, SIGTERM);

@@ -83,3 +83,23 @@ fi
 
 # test Unix Domain socket Bandwidth 
 ###########################################
+if [ -x bandwidth_unixsocket ]
+then
+    echo "run bandwidth_unixsocket 5 100 64 ...."
+        ./bandwidth_unixsocket 5 100 64
+    echo "****"
+fi
+
+if [ -x bandwidth_unixsocket ]
+then
+    echo "run bandwidth_unixsocket 5 100 128 ...."
+        ./bandwidth_unixsocket 5 100 64
+    echo "****"
+fi
+
+if [ -x bandwidth_unixsocket ]
+then
+    echo "run bandwidth_unixsocket 5 100 1024 ...."
+        ./bandwidth_unixsocket 5 100 64
+    echo "****"
+fi

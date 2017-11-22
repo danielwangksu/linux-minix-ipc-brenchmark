@@ -13,6 +13,15 @@ function runTest
     return
 }
 
+function runRaw
+{  
+    CMD=$1
+
+    OUTPUT=`$CMD`
+    echo $OUTPUT
+    return
+}
+
 function getAverage
 {
     n=$1
@@ -103,3 +112,23 @@ fi
 
 # test Message Queue bandwidth 
 ###########################################
+if [ -x bandwidth_pxmsg ]
+then
+    echo "run bandwidth_pxmsg 5 100 64 ...."
+        ./bandwidth_pxmsg 5 100 64
+    echo "****"
+fi
+
+if [ -x bandwidth_pxmsg ]
+then
+    echo "run bandwidth_pxmsg 5 100 128 ...."
+        ./bandwidth_pxmsg 5 100 128
+    echo "****"
+fi
+
+if [ -x bandwidth_pxmsg ]
+then
+    echo "run bandwidth_pxmsg 5 100 1024 ...."
+        ./bandwidth_pxmsg 5 100 1024
+    echo "****"
+fi

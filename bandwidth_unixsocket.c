@@ -1,8 +1,7 @@
 /**************************************************************
-*   Linux POSIX Message Queue for bandwidth Testing           *
+*   Linux Unix Domain Socket for bandwidth Testing           *
 *   by Daniel Wang                                            *
 ***************************************************************/
-
 #include <stdio.h> /* For printf */
 #include <stdlib.h> /* For exit() */
 #include <unistd.h> /* For sysconf() */
@@ -13,6 +12,7 @@
 #include <sys/stat.h>   /* For mode constants */
 #include <arpa/inet.h> /* For socket related */
 #include <sys/un.h>  /* For Unix Domain socket struct */
+#include <sys/resource.h>
 
 #include <time.h>
 #include <sys/time.h>
@@ -117,7 +117,7 @@ void writer(int socket_fd)
  *=================================================================*/
 int main(int argc, char ** argv)
 {
-    int i, nloop;
+    int i, nloop, prio;
     pid_t childpid;
 
     //Server items
@@ -132,6 +132,10 @@ int main(int argc, char ** argv)
 
     struct timespec before = {0, 0};
     struct timespec after = {0, 0};
+
+    prio = setpriority(PRIO_PROCESS, 0, -20);
+    if(prio != 0)
+        printf("[SERVER]: need more privilege to change priority\n");
 
     if(argc != 4)
         bail("[Error] usage: bandwidth_pxmsg {NUM_OF_LOOPS} {TOTAL_NUM_OF_MB} {BYTES_PER_WRITE}");
@@ -195,7 +199,7 @@ int main(int argc, char ** argv)
         reader(local_fd, totalnbytes);
         // get timestamp after
         clock_gettime(CLOCK_MONOTONIC, &after);
-        printf("sec: %ld, nonosec: %ld total bytes: %d\n", diff(before, after).tv_sec, diff(before, after).tv_nsec, totalnbytes);
+        printf("sec: %ld, nsec: %ld total bytes: %d\n", diff(before, after).tv_sec, diff(before, after).tv_nsec, totalnbytes);
     }
 
     kill(childpid, SIGTERM);

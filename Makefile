@@ -1,5 +1,4 @@
-all: latency_pxmsg bandwidth_pxmsg latency_udpsocket_client latency_udpsocket_server latency_unixsocket_client latency_unixsocket_server
-bandwidth_unixsocket
+all: latency_pxmsg bandwidth_pxmsg latency_udpsocket_client latency_udpsocket_server latency_unixsocket_client latency_unixsocket_server bandwidth_unixsocket
 latency_pxmsg: latency_pxmsg.c
 	gcc -g -O0 -D_REENTRANT -Wall $^ -o $@ -lrt
 
