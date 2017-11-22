@@ -77,13 +77,14 @@ int touch(void *vptr, int nbytes)
 /*=================================================================*
  *              sendTotal                       *
  *=================================================================*/
-void sendTotal(int socket_fd, int total)
+void sendTotal(int socket_fd, int total, struct sockaddr_in dest_adr, socklen_t len)
 {
     void* offset;
     offset = buf;
+    printf("total: %d\n", total);
     while(total > 0)
     {
-        send(socket_fd, offset, xfersize, 0);
+        sendto(socket_fd, offset, xfersize, 0, (struct sockaddr *)&dest_adr, len);
         offset = offset + xfersize;
         total -= xfersize;
     }
@@ -100,9 +101,6 @@ int main(int argc, char ** argv)
 
     struct sockaddr_in dest_adr;
     int socket_fd;
-
-    struct timespec before = {0, 0};
-    struct timespec after = {0, 0};
 
     prio = setpriority(PRIO_PROCESS, 0, -20);
     if(prio != 0)
@@ -131,16 +129,13 @@ int main(int argc, char ** argv)
     socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_fd == -1)
         bail("[Error]: socket() failed");
-
+    
     sleep(1);
 
     for(i = 0; i < nloop; i++)
     {
-        clock_gettime(CLOCK_MONOTONIC, &before);
-        sendTotal(socket_fd, totalnbytes);
-        // get timestamp after
-        clock_gettime(CLOCK_MONOTONIC, &after);
-        printf("sec: %ld, nsec: %ld total bytes: %d\n", diff(before, after).tv_sec, diff(before, after).tv_nsec, totalnbytes);
+        sendTotal(socket_fd, totalnbytes, dest_adr, sizeof dest_adr);
+
     }
     free(buf);
     close(socket_fd);

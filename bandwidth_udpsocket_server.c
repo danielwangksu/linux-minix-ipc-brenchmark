@@ -22,6 +22,10 @@
 
 #define DEST_UDP_PORT 9090 /* 9090 receive port */
 
+int totalnbytes, xfersize;
+
+char buff[MSGSIZE] = {0};
+
 // fault handler
 static void bail(const char *on_what) {
     perror(on_what);
@@ -45,23 +49,44 @@ struct timespec diff(struct timespec start, struct timespec end)
 }
 
 /*=================================================================*
+ *              recvTotal                       *
+ *=================================================================*/
+void recvTotal(int socket_fd, int nbytes, struct sockaddr_in client_adr)
+{   
+    ssize_t n;
+    socklen_t client_adr_len;
+    client_adr_len = sizeof(client_adr);
+
+    while((nbytes > 0) && ((n = recvfrom(socket_fd, buff, sizeof(buff), 0, (struct sockaddr *) &client_adr, &client_adr_len)) > 0))
+    {
+        nbytes -= n;
+    }
+}
+
+/*=================================================================*
  *              main                            *
  *=================================================================*/
 int main(int argc, char ** argv)
 {
-    int prio, status;
+    int prio, i, nloop;
 
     struct sockaddr_in client_adr, local_adr;
-    socklen_t client_adr_len;
     int socket_fd;
-    char buff[MSGSIZE] = {0};
+
+    struct timespec before = {0, 0};
+    struct timespec after = {0, 0};
 
     prio = setpriority(PRIO_PROCESS, 0, -20);
     if(prio != 0)
         printf("[SERVER]: need more privilege to change priority\n");
 
-    memset(&client_adr, 0, sizeof client_adr);
+    if(argc != 3)
+        bail("[Error] usage: bandwidth_udpsocket_server {NUM_OF_LOOPS} {TOTAL_NUM_OF_MB}");
+    nloop = atoi(argv[1]);
+    totalnbytes = atoi(argv[2]) * 1024 * 1024;
+
     memset(&local_adr, 0, sizeof local_adr);
+    memset(&client_adr, 0, sizeof client_adr);
     local_adr.sin_family = AF_INET;
     local_adr.sin_port = htons(DEST_UDP_PORT);
     local_adr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -76,12 +101,12 @@ int main(int argc, char ** argv)
     if(bind(socket_fd, (struct sockaddr *) &local_adr, sizeof(local_adr)) < 0)
         bail("[SERVER]: bind() failed");
 
-    while(1)
+    for(i = 0; i < nloop; i++)
     {
-        client_adr_len = sizeof(client_adr);
-        status = recvfrom(socket_fd, buff, sizeof(buff), 0, (struct sockaddr *)&client_adr, &client_adr_len);
-        if(status < 0)
-            bail("[SERVER]: recvfrom(2) failed");
+        clock_gettime(CLOCK_MONOTONIC, &before);
+        recvTotal(socket_fd, totalnbytes, client_adr);
+        clock_gettime(CLOCK_MONOTONIC, &after);
+        printf("sec: %ld, nsec: %ld total bytes: %d\n", diff(before, after).tv_sec, diff(before, after).tv_nsec, totalnbytes);
     }
     close(socket_fd);
     return 0;
