@@ -101,5 +101,5 @@ then
     getAverage 5
 fi
 
-# test Unix Domain Socket Latency 
+# test Message Queue bandwidth 
 ###########################################

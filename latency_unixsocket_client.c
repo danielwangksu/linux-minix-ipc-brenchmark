@@ -94,9 +94,11 @@ int main(int argc, char ** argv)
     server_adr.sun_family = AF_UNIX;
     strncpy(server_adr.sun_path, UNIX_SERVER_SOCK_FILE, sizeof(server_adr.sun_path) - 1);
 
+    sleep(1);
+
     for(i = 0; i < nloop; i++)
     {
-        printf("[CLIENT]: sending message\n");
+        // printf("[CLIENT]: sending message\n");
         clock_gettime(CLOCK_MONOTONIC, &before);
         if (sendto(socket_fd, buffsend, msgsize, 0, (struct sockaddr *) &server_adr,
                 sizeof(struct sockaddr_un)) != msgsize)

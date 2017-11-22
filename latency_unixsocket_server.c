@@ -51,7 +51,7 @@ unsigned long diff(struct timespec start, struct timespec end)
 
 int main(int argc, char ** argv)
 {
-    int msgsize, prio, len;
+    int i, nloop, msgsize, prio, len;
 
     ssize_t num_bytes;
     struct sockaddr_un client_adr, local_adr;
@@ -61,9 +61,10 @@ int main(int argc, char ** argv)
     char buffsend[MSGSIZE] = {0};
     char buffrecv[MSGSIZE] = {0};
 
-    if(argc != 2)
-        bail("[Error] usage: latency_unixsocket_server {MESSAGE_SIZE}");
-    msgsize = atoi(argv[1]);
+    if(argc != 3)
+        bail("[Error] usage: latency_unixsocket_server {NUM_OF_LOOPS} {MESSAGE_SIZE}");
+    nloop = atoi(argv[1]);
+    msgsize = atoi(argv[2]);
 
     prio = setpriority(PRIO_PROCESS, 0, -20);
     if(prio != 0)
@@ -86,9 +87,9 @@ int main(int argc, char ** argv)
     if(bind(server_fd, (struct sockaddr *) &local_adr, sizeof(struct sockaddr_un)) < 0)
         bail("[SERVER]: bind() failed");
 
-    while(1)
+    for(i = 0; i < nloop; i++)
     {
-        printf("[SERVER]: start receiving \n");
+        //printf("[SERVER]: start receiving \n");
         len = sizeof(struct sockaddr_un);
         num_bytes = recvfrom(server_fd, buffrecv, MSGSIZE, 0, (struct sockaddr *) &client_adr, (socklen_t *) &len);
         if (num_bytes != msgsize)
