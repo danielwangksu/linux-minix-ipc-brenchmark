@@ -12,13 +12,14 @@
 #include <fcntl.h>  /* For O_* constants */
 #include <sys/stat.h>   /* For mode constants */
 #include <arpa/inet.h> /* For socket related */
+#include <sys/resource.h>
 
 #include <time.h>
 #include <sys/time.h>
 
 #define OK  0
 #define BILLION  1000000000L
-#define MSGSIZE 64 // 1 or 1024 bytes
+#define MSGSIZE 8*1024
 
 #define DEST_UDP_PORT 9090 /* 9090 receive port */
 
@@ -41,7 +42,7 @@ unsigned long diff(struct timespec start, struct timespec end)
         temp.tv_sec = end.tv_sec - start.tv_sec;
         temp.tv_nsec = end.tv_nsec - start.tv_nsec;
     }
-    return temp;
+    return (unsigned long)temp.tv_sec * BILLION + (unsigned long)temp.tv_nsec;
 }
 
 /*=================================================================*
@@ -50,22 +51,28 @@ unsigned long diff(struct timespec start, struct timespec end)
 
 int main(int argc, char ** argv)
 {
-    int status;
-
+    int status, nloop, i, msgsize, prio;
     struct sockaddr_in client_adr, local_adr;
     socklen_t client_adr_len;
-    //socklen_t local_adr_len;
     int socket_fd;
 
-    char buffsend[MSGSIZE] = {-1};
-    char buffrecv[MSGSIZE] = {-1};
+    char buffsend[MSGSIZE] = {0};
+    char buffrecv[MSGSIZE] = {0};
+
+    if(argc != 3)
+        bail("[Error] usage: latency_unixsocket_server {NUM_OF_LOOPS} {MESSAGE_SIZE}");
+    nloop = atoi(argv[1]);
+    msgsize = atoi(argv[2]);
+
+    prio = setpriority(PRIO_PROCESS, 0, -20);
+    if(prio != 0)
+        printf("[CLIENT]: need more privilege to change priority\n");
 
     memset(&client_adr, 0, sizeof client_adr);
     memset(&local_adr, 0, sizeof local_adr);
     local_adr.sin_family = AF_INET;
     local_adr.sin_port = htons(DEST_UDP_PORT);
     local_adr.sin_addr.s_addr = htonl(INADDR_ANY);
-    //local_adr_len = sizeof local_adr;
 
     if (local_adr.sin_addr.s_addr == INADDR_NONE)
         bail("[SERVER]: bad address");
@@ -77,14 +84,14 @@ int main(int argc, char ** argv)
     if(bind(socket_fd, (struct sockaddr *) &local_adr, sizeof(local_adr)) < 0)
         bail("[SERVER]: bind() failed");
 
-    while(1)
+    for(i = 0; i < nloop; i++)
     {
         client_adr_len = sizeof(client_adr);
-        printf("[SERVER]: start receiving %s\n", inet_ntoa(local_adr.sin_addr));
+        //printf("[SERVER]: start receiving %s\n", inet_ntoa(local_adr.sin_addr));
         status = recvfrom(socket_fd, buffrecv, sizeof(buffrecv), 0, (struct sockaddr *)&client_adr, &client_adr_len);
         if(status < 0)
             bail("[SERVER]: recvfrom(2) failed");
-        status = sendto(socket_fd, buffsend, sizeof(buffsend), 0, (struct sockaddr *)&client_adr, client_adr_len);
+        status = sendto(socket_fd, buffsend, msgsize, 0, (struct sockaddr *)&client_adr, client_adr_len);
         if(status < 0)
             bail("[SERVER]: sendto() failed");
     }

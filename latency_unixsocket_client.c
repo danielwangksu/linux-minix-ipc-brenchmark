@@ -112,7 +112,7 @@ int main(int argc, char ** argv)
         elapse += diff(before, after);
     }
     
-    printf("[Server]: %d loop average nsec %lu\n", nloop, elapse/nloop);
+    printf("[CLIENT]: %d loop average nsec %lu\n", nloop, elapse/nloop);
 
     close(socket_fd);
     unlink(UNIX_SERVER_SOCK_FILE);
