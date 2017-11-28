@@ -6,6 +6,7 @@
 #include <stdlib.h> /* For exit() */
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <signal.h> /* For kill() */
 #include <string.h>
 #include <fcntl.h>  /* For O_* constants */
@@ -80,13 +81,20 @@ int touch(void *vptr, int nbytes)
 void sendTotal(int socket_fd, int total, struct sockaddr_in dest_adr, socklen_t len)
 {
     void* offset;
+    int n, sendall;
     offset = buf;
-    printf("total: %d\n", total);
+    sendall = total;
+
     while(total > 0)
     {
-        sendto(socket_fd, offset, xfersize, 0, (struct sockaddr *)&dest_adr, len);
-        offset = offset + xfersize;
-        total -= xfersize;
+        n = sendto(socket_fd, offset, xfersize, 0, (struct sockaddr *)&dest_adr, len);
+        if(n > 0)
+        {
+            offset = offset + n;
+            sendall -= n;
+            if(sendall == 0)
+                offset = buf;
+        }
     }
 
 }
@@ -114,6 +122,8 @@ int main(int argc, char ** argv)
     destip = argv[4];
 
     buf = malloc(totalnbytes);
+    if(buf == NULL)
+        bail("cannot allocate that much");
     if(touch(buf, totalnbytes) == -1)
         bail("[Error] touch error");
 

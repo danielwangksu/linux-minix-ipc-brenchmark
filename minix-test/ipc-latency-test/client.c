@@ -143,7 +143,7 @@ int main(int argc, char ** argv){
 
         clock_gettime(CLOCK_MONOTONIC, &before); // get timestamp before
         //start_time();
-        for(j = 0; j < 1000; j++)
+        for(j = 0; j < 100; j++)
         {
             ipc_send(server_ep, &m);
             r = ipc_receive(server_ep, &m, &status);

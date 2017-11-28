@@ -6,6 +6,7 @@
 #include <stdlib.h> /* For exit() */
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <signal.h> /* For kill() */
 #include <string.h>
 #include <fcntl.h>  /* For O_* constants */
@@ -57,9 +58,13 @@ void recvTotal(int socket_fd, int nbytes, struct sockaddr_in client_adr)
     socklen_t client_adr_len;
     client_adr_len = sizeof(client_adr);
 
-    while((nbytes > 0) && ((n = recvfrom(socket_fd, buff, sizeof(buff), 0, (struct sockaddr *) &client_adr, &client_adr_len)) > 0))
+    while(nbytes > 0)
     {
-        nbytes -= n;
+        n = recvfrom(socket_fd, buff, sizeof(buff), 0, (struct sockaddr *) &client_adr, &client_adr_len);
+        if(n > 0)
+        {
+            nbytes -= n;
+        }
     }
 }
 
@@ -85,6 +90,8 @@ int main(int argc, char ** argv)
     nloop = atoi(argv[1]);
     totalnbytes = atoi(argv[2]) * 1024 * 1024;
 
+    printf("totalnbytes=%d\n", totalnbytes);
+
     memset(&local_adr, 0, sizeof local_adr);
     memset(&client_adr, 0, sizeof client_adr);
     local_adr.sin_family = AF_INET;
@@ -102,7 +109,9 @@ int main(int argc, char ** argv)
         bail("[SERVER]: bind() failed");
 
     for(i = 0; i < nloop; i++)
-    {
+    {   
+        recvfrom(socket_fd, buff, sizeof(buff), 0, (struct sockaddr *) &client_adr, NULL);
+        printf("start timer\n");
         clock_gettime(CLOCK_MONOTONIC, &before);
         recvTotal(socket_fd, totalnbytes, client_adr);
         clock_gettime(CLOCK_MONOTONIC, &after);
