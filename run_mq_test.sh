@@ -68,6 +68,28 @@ fi
 
 if [ -x latency_pxmsg ]
 then
+    echo "run latency_pxmsg 10000 256 ...."
+    for i in 1 2 3 4 5
+    do
+        runTest "./latency_pxmsg 10000 256"
+    done
+    echo "****"
+    getAverage 5
+fi
+
+if [ -x latency_pxmsg ]
+then
+    echo "run latency_pxmsg 10000 512 ...."
+    for i in 1 2 3 4 5
+    do
+        runTest "./latency_pxmsg 10000 512"
+    done
+    echo "****"
+    getAverage 5
+fi
+
+if [ -x latency_pxmsg ]
+then
     echo "run latency_pxmsg 10000 1024 ...."
     for i in 1 2 3 4 5
     do
@@ -123,6 +145,20 @@ if [ -x bandwidth_pxmsg ]
 then
     echo "run bandwidth_pxmsg 5 100 128 ...."
         ./bandwidth_pxmsg 5 100 128
+    echo "****"
+fi
+
+if [ -x bandwidth_pxmsg ]
+then
+    echo "run bandwidth_pxmsg 5 100 256 ...."
+        ./bandwidth_pxmsg 5 100 256
+    echo "****"
+fi
+
+if [ -x bandwidth_pxmsg ]
+then
+    echo "run bandwidth_pxmsg 5 100 512 ...."
+        ./bandwidth_pxmsg 5 100 512
     echo "****"
 fi
 

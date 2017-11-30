@@ -71,6 +71,30 @@ fi
 
 if [ -x latency_unixsocket_server ]
 then
+    echo "run latency_unixsocket_server 256 ...."
+    for i in 1 2 3 4 5
+    do
+        ./latency_unixsocket_server 10000 256 &
+        runClient "./latency_unixsocket_client 10000 256"
+    done
+    echo "****"
+    getAverage 5
+fi
+
+if [ -x latency_unixsocket_server ]
+then
+    echo "run latency_unixsocket_server 512 ...."
+    for i in 1 2 3 4 5
+    do
+        ./latency_unixsocket_server 10000 512 &
+        runClient "./latency_unixsocket_client 10000 512"
+    done
+    echo "****"
+    getAverage 5
+fi
+
+if [ -x latency_unixsocket_server ]
+then
     echo "run latency_unixsocket_server 1024 ...."
     for i in 1 2 3 4 5
     do
@@ -93,13 +117,27 @@ fi
 if [ -x bandwidth_unixsocket ]
 then
     echo "run bandwidth_unixsocket 5 100 128 ...."
-        ./bandwidth_unixsocket 5 100 64
+        ./bandwidth_unixsocket 5 100 128
+    echo "****"
+fi
+
+if [ -x bandwidth_unixsocket ]
+then
+    echo "run bandwidth_unixsocket 5 100 256 ...."
+        ./bandwidth_unixsocket 5 100 256
+    echo "****"
+fi
+
+if [ -x bandwidth_unixsocket ]
+then
+    echo "run bandwidth_unixsocket 5 100 512 ...."
+        ./bandwidth_unixsocket 5 100 512
     echo "****"
 fi
 
 if [ -x bandwidth_unixsocket ]
 then
     echo "run bandwidth_unixsocket 5 100 1024 ...."
-        ./bandwidth_unixsocket 5 100 64
+        ./bandwidth_unixsocket 5 100 1024
     echo "****"
 fi
