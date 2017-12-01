@@ -30,6 +30,10 @@
 unsigned char buffsend[MSGSIZE] = {0};
 unsigned char buffrecv[MSGSIZE] = {0};
 
+unsigned char ptext[MSGSIZE] = {0};
+unsigned char ctext[MSGSIZE] = {0};
+unsigned char dtext[MSGSIZE] = {0};
+
 // fault handler
 static void bail(const char *on_what) {
     perror(on_what);
@@ -160,17 +164,15 @@ void decrypt_message(int cipherlen)
     // 128 bit IV
     unsigned char *iv = (unsigned char *) "0123456789abcdefg";
 
-    unsigned char decryptedtext[128];
-
-    decryptedtext_len = decrypt(buffrecv, cipherlen, key, iv, decryptedtext);
-    decryptedtext[decryptedtext_len] = '\0';
+    decryptedtext_len = decrypt(buffrecv, cipherlen, key, iv, dtext);
+    dtext[decryptedtext_len] = '\0';
     //printf("%s\n", decryptedtext);
 }
 
 /*=================================================================*
  *              prepare_message                 *
  *=================================================================*/
-int prepare_message()
+int prepare_message(int size)
 {
     int ciphertext_len;
 
@@ -178,14 +180,10 @@ int prepare_message()
     unsigned char *key = (unsigned char *) "0123456789abcdefghigklmnopqrstuv";
     // 128 bit IV
     unsigned char *iv = (unsigned char *) "0123456789abcdefg";
-    // plaintext
-    unsigned char *plaintext = (unsigned char *) "The quick brown fox jumps over the lazy dog";
 
-    unsigned char ciphertext[128];
+    ciphertext_len = encrypt(ptext, size, key, iv, ctext);
 
-    ciphertext_len = encrypt(plaintext, strlen((char *)plaintext), key, iv, ciphertext);
-
-    memcpy(buffsend, ciphertext, ciphertext_len);
+    memcpy(buffsend, ctext, ciphertext_len);
 
     return ciphertext_len;
 }
@@ -200,6 +198,7 @@ int main(int argc, char ** argv)
     struct sockaddr_in client_adr, local_adr;
     socklen_t client_adr_len;
     int socket_fd;
+    int cipherlen;
 
     if(argc != 3)
         bail("[Error] usage: latency_unixsocket_server {NUM_OF_LOOPS} {MESSAGE_SIZE}");
@@ -235,9 +234,9 @@ int main(int argc, char ** argv)
             bail("[SERVER]: recvfrom(2) failed");
 
         decrypt_message(status);
-        msgsize = prepare_message();
+        cipherlen = prepare_message(msgsize);
 
-        status = sendto(socket_fd, buffsend, msgsize, 0, (struct sockaddr *)&client_adr, client_adr_len);
+        status = sendto(socket_fd, buffsend, cipherlen, 0, (struct sockaddr *)&client_adr, client_adr_len);
         if(status < 0)
             bail("[SERVER]: sendto() failed");
     }

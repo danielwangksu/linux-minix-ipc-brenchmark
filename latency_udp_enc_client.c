@@ -31,6 +31,10 @@
 unsigned char buffsend[MSGSIZE] = {0};
 unsigned char buffrecv[MSGSIZE] = {0};
 
+unsigned char ptext[MSGSIZE] = {0};
+unsigned char ctext[MSGSIZE] = {0};
+unsigned char dtext[MSGSIZE] = {0};
+
 // fault handler
 static void bail(const char *on_what) {
     perror(on_what);
@@ -160,17 +164,26 @@ void decrypt_message(int cipherlen)
     // 128 bit IV
     unsigned char *iv = (unsigned char *) "0123456789abcdefg";
 
-    unsigned char decryptedtext[128];
-
-    decryptedtext_len = decrypt(buffrecv, cipherlen, key, iv, decryptedtext);
-    decryptedtext[decryptedtext_len] = '\0';
+    decryptedtext_len = decrypt(buffrecv, cipherlen, key, iv, dtext);
+    dtext[decryptedtext_len] = '\0';
     //printf("%s\n", decryptedtext);
 }
 
 /*=================================================================*
  *              prepare_message                 *
  *=================================================================*/
-int prepare_message()
+void randomptext()
+{
+    int i = 0;
+
+    for(i = 0; i < MSGSIZE; i++)
+        ptext[i] = 'A' + (random() % 26);
+}
+
+/*=================================================================*
+ *              prepare_message                 *
+ *=================================================================*/
+int prepare_message(int size)
 {
     int ciphertext_len;
 
@@ -178,14 +191,11 @@ int prepare_message()
     unsigned char *key = (unsigned char *) "0123456789abcdefghigklmnopqrstuv";
     // 128 bit IV
     unsigned char *iv = (unsigned char *) "0123456789abcdefg";
-    // plaintext
-    unsigned char *plaintext = (unsigned char *) "The quick brown fox jumps over the lazy dog";
 
-    unsigned char ciphertext[128];
 
-    ciphertext_len = encrypt(plaintext, strlen((char *)plaintext), key, iv, ciphertext);
+    ciphertext_len = encrypt(ptext, size, key, iv, ctext);
 
-    memcpy(buffsend, ciphertext, ciphertext_len);
+    memcpy(buffsend, ctext, ciphertext_len);
 
     return ciphertext_len;
 }
@@ -198,6 +208,7 @@ int main(int argc, char ** argv)
 {
     int i, nloop, msgsize, status, prio;
     char *destip;
+    int cipherlen;
 
     struct sockaddr_in dest_adr;
     socklen_t dest_adr_len;
@@ -237,14 +248,16 @@ int main(int argc, char ** argv)
     OpenSSL_add_all_algorithms();
     OPENSSL_config(NULL);
 
+    randomptext();
+
     sleep(1);
 
     for(i = 0; i < nloop; i++)
     {   
         //printf("[CLIENT]: sending message to %s\n", inet_ntoa(dest_adr.sin_addr));
         clock_gettime(CLOCK_MONOTONIC, &before);
-        msgsize = prepare_message();
-        status = sendto(socket_fd, buffsend, msgsize, 0, (struct sockaddr *)&dest_adr, dest_adr_len);
+        cipherlen = prepare_message(msgsize);
+        status = sendto(socket_fd, buffsend, cipherlen, 0, (struct sockaddr *)&dest_adr, dest_adr_len);
         if (status < 0)
             bail("[Error]: sendto() failed");
         status = recvfrom(socket_fd, buffrecv, sizeof(buffrecv), 0, (struct sockaddr *)&dest_adr, &dest_adr_len);
